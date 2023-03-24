@@ -7,15 +7,17 @@ using namespace System;
 //    return 0;
 // }
 
-#include "Form1.h"
+#include "MainForm.h"
 
 using namespace System::Windows::Forms;
-
+#include"pcap.h"
 [STAThread]
 int main()
 {
   Application::EnableVisualStyles();
   Application::SetCompatibleTextRenderingDefault(false);
-  Application::Run(gcnew CppCLRWinFormsProject::Form1());
+  Application::Run(gcnew Sniffer::MainForm());
+
+
   return 0;
 }
