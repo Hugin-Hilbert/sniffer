@@ -31,8 +31,41 @@ namespace Entity {
 		
 	}
 };
+ref class syncBool
+{
+public:
+	bool^ val;
+	msclr::lock locker;
+	syncBool(bool _val):val(_val),locker(val) {
+	}
+	void set(bool^ _val) {
+		locker.acquire();
+		val = _val;
+	}
+	bool^ tryGet(int time_out, bool^ default_val) {
+		if (locker.try_acquire(time_out)) {
+			return val;
+		}
+		return default_val;
+	}
+	bool^ get() {
+		locker.acquire();
+		return val;
+	}
+	~syncBool() {
+
+	}
+};
+#include<string>
+#include<vector>
 struct PackageInfo
 {
-	const struct pcap_pkthdr* header;
-	const u_char* pkt_data;
+	struct pcap_pkthdr header;
+	std::vector<byte> pkt_data;
+	PackageInfo(const pcap_pkthdr* h,const u_char* d) {
+		header = *h;
+		for (int i=0;d[i];i++) {
+			pkt_data.push_back(d[i]);
+		}
+	}
 };

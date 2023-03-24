@@ -1,6 +1,7 @@
 #include"utils.h"
 #include"entity.h"
 #include<msclr/gcroot.h>
+#include<msclr/lock.h>
 #pragma once
 namespace Sniffer {
 
@@ -13,12 +14,25 @@ namespace Sniffer {
 	public ref class MainForm : public System::Windows::Forms::Form
 	{
 	public:
+		/// <summary>
+		/// user region
+		/// </summary>
+		syncBool^ keepAlive,^procAlive;
 		MainForm(void)
 		{
 			InitializeComponent();
-			//
-			//TODO: Add the constructor code here
-			//
+			this->keepAlive =gcnew syncBool(false);
+			this->procAlive = gcnew syncBool(true);
+			pcap_if_t* all_dev;
+			char err[PCAP_ERRBUF_SIZE];
+			if (pcap_findalldevs_ex(PCAP_SRC_IF_STRING, NULL, &all_dev, err) == -1) {
+				MessageBox::Show(gcnew String(err));
+				exit(1);
+			}
+			for (auto cur_dev = all_dev; cur_dev; cur_dev = cur_dev->next) {
+				Entity::InterfaceInfo^ info = gcnew Entity::InterfaceInfo(cur_dev);
+				this->adapterList->Items->Add(info);
+			}
 		}
 		/// <summary>
 		/// Summary for MainForm
@@ -34,11 +48,10 @@ namespace Sniffer {
 			{
 				delete components;
 			}
+			procAlive->set(false);
 		}
 	private: System::Windows::Forms::Button^ btnStartSniff;
-	private: System::Windows::Forms::ListView^ dataView;
-
-
+	public: System::Windows::Forms::ListView^ dataView;
 	protected:
 
 
@@ -52,13 +65,6 @@ namespace Sniffer {
 
 
 
-
-
-
-
-	protected:
-
-
 	private:
 		/// <summary>
 		/// Required designer variable.
@@ -69,9 +75,11 @@ namespace Sniffer {
 		/// Required method for Designer support - do not modify
 		/// the contents of this method with the code editor.
 		/// </summary>
+	
+		
+		
 		void InitializeComponent(void)
 		{
-			System::Windows::Forms::ListViewItem^ listViewItem1 = (gcnew System::Windows::Forms::ListViewItem(L"1111"));
 			this->btnStartSniff = (gcnew System::Windows::Forms::Button());
 			this->dataView = (gcnew System::Windows::Forms::ListView());
 			this->binary = (gcnew System::Windows::Forms::ColumnHeader());
@@ -93,14 +101,12 @@ namespace Sniffer {
 			// 
 			this->dataView->Columns->AddRange(gcnew cli::array< System::Windows::Forms::ColumnHeader^  >(1) { this->binary });
 			this->dataView->HideSelection = false;
-			this->dataView->Items->AddRange(gcnew cli::array< System::Windows::Forms::ListViewItem^  >(1) { listViewItem1 });
 			this->dataView->Location = System::Drawing::Point(49, 91);
 			this->dataView->Name = L"dataView";
 			this->dataView->Size = System::Drawing::Size(547, 362);
 			this->dataView->TabIndex = 1;
 			this->dataView->UseCompatibleStateImageBehavior = false;
 			this->dataView->View = System::Windows::Forms::View::Details;
-			this->dataView->SelectedIndexChanged += gcnew System::EventHandler(this, &MainForm::adapterView_SelectedIndexChanged);
 			// 
 			// binary
 			// 
@@ -111,7 +117,6 @@ namespace Sniffer {
 			// 
 			this->adapterList->DropDownStyle = System::Windows::Forms::ComboBoxStyle::DropDownList;
 			this->adapterList->FormattingEnabled = true;
-			this->adapterList->Items->AddRange(gcnew cli::array< System::Object^  >(2) { L"test1", L"test2" });
 			this->adapterList->Location = System::Drawing::Point(49, 33);
 			this->adapterList->Name = L"adapterList";
 			this->adapterList->Size = System::Drawing::Size(325, 45);
@@ -125,6 +130,7 @@ namespace Sniffer {
 			this->stopSniffer->TabIndex = 3;
 			this->stopSniffer->Text = L"Í£Ö¹¼àÌý";
 			this->stopSniffer->UseVisualStyleBackColor = true;
+			this->stopSniffer->Click += gcnew System::EventHandler(this, &MainForm::stopSniffer_Click);
 			// 
 			// MainForm
 			// 
@@ -140,20 +146,6 @@ namespace Sniffer {
 
 		}
 #pragma endregion
-	private: System::Void MainForm_Load(System::Object^ sender, System::EventArgs^ e) {
-		auto list = adapterList->Items;
-		pcap_if_t* all_dev;
-		char err[PCAP_ERRBUF_SIZE];
-		if (pcap_findalldevs_ex(PCAP_SRC_IF_STRING,NULL,&all_dev, err)==-1) {
-			MessageBox::Show(gcnew String(err));
-			exit(1);
-		}
-		list->Clear();
-		for (auto cur_dev = all_dev; cur_dev;cur_dev=cur_dev->next) {
-			Entity::InterfaceInfo^ info=gcnew Entity::InterfaceInfo(cur_dev);
-			list->Add(info);
-		}
-	}
 	void  startListen(const char* id) {
 		char err[PCAP_ERRBUF_SIZE];
 		pcap_t* adhandle = pcap_open(id, 65536, PCAP_OPENFLAG_PROMISCUOUS, 1000, NULL, err);
@@ -161,19 +153,23 @@ namespace Sniffer {
 			exit(1);
 		}
 		MessageBox::Show("¿ªÊ¼¼àÌý£º" + gcnew String(id));
-		wrap(dataView);
-		if (pcap_dispatch(adhandle, 0, recvPackFun, (u_char*)adhandle) == -1) {
-			MessageBox::Show(gcnew String(pcap_geterr(adhandle)));
-		}
-		pcap_close(adhandle);
-		MessageBox::Show("¼àÌý½áÊø");
+		this->keepAlive->set(true);
+		DataManager^ manager=gcnew DataManager(dataView,this->keepAlive,this->procAlive);
+		auto thstart = gcnew Threading::ParameterizedThreadStart(manager, &DataManager::run);
+		Threading::Thread^ th = gcnew Threading::Thread(thstart);
+		th->Start((IntPtr)adhandle);
+		//MessageBox::Show("¼àÌý½áÊø");
 	}
 private: System::Void btnStartSniff_Click(System::Object^ sender, System::EventArgs^ e) {
 	Entity::InterfaceInfo^ info=(Entity::InterfaceInfo^)adapterList->SelectedItem;
 	auto id=info->id;
 	startListen(id);
 }
-private: System::Void adapterView_SelectedIndexChanged(System::Object^ sender, System::EventArgs^ e) {
+private: System::Void stopSniffer_Click(System::Object^ sender, System::EventArgs^ e) {
+	keepAlive->set(false);
+	//MessageBox::Show("mainProc:keepAlive:"+keepAlive->get()->ToString());
+}
+private: System::Void MainForm_Load(System::Object^ sender, System::EventArgs^ e) {
 }
 };
 }
