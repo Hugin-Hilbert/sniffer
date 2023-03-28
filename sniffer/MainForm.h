@@ -1,9 +1,11 @@
-#include"utils.h"
-#include"entity.h"
+#include"Entity.h"
 #include<msclr/gcroot.h>
 #include<msclr/lock.h>
+#include"utils.h"
 #pragma once
-namespace Sniffer {
+extern void recvPackFun(u_char* param,
+	const struct pcap_pkthdr* header,
+	const u_char* pkt_data);
 
 	using namespace System;
 	using namespace System::ComponentModel;
@@ -18,6 +20,11 @@ namespace Sniffer {
 		/// user region
 		/// </summary>
 		syncBool^ keepAlive,^procAlive;
+	private: System::Windows::Forms::ColumnHeader^ timeStr;
+	private: System::Windows::Forms::ColumnHeader^ protocol;
+	private: System::Windows::Forms::ColumnHeader^ sourceAddr;
+	private: System::Windows::Forms::ColumnHeader^ destinationAddr;
+	public:
 		MainForm(void)
 		{
 			InitializeComponent();
@@ -30,7 +37,7 @@ namespace Sniffer {
 				exit(1);
 			}
 			for (auto cur_dev = all_dev; cur_dev; cur_dev = cur_dev->next) {
-				Entity::InterfaceInfo^ info = gcnew Entity::InterfaceInfo(cur_dev);
+				InterfaceInfo^ info = gcnew InterfaceInfo(cur_dev);
 				this->adapterList->Items->Add(info);
 			}
 		}
@@ -52,10 +59,12 @@ namespace Sniffer {
 		}
 	private: System::Windows::Forms::Button^ btnStartSniff;
 	public: System::Windows::Forms::ListView^ dataView;
+	private: System::Windows::Forms::ColumnHeader^ hexStr;
+	public:
 	protected:
 
 
-	private: System::Windows::Forms::ColumnHeader^ binary;
+
 	private: System::Windows::Forms::ComboBox^ adapterList;
 	private: System::Windows::Forms::Button^ stopSniffer;
 
@@ -82,9 +91,13 @@ namespace Sniffer {
 		{
 			this->btnStartSniff = (gcnew System::Windows::Forms::Button());
 			this->dataView = (gcnew System::Windows::Forms::ListView());
-			this->binary = (gcnew System::Windows::Forms::ColumnHeader());
+			this->hexStr = (gcnew System::Windows::Forms::ColumnHeader());
 			this->adapterList = (gcnew System::Windows::Forms::ComboBox());
 			this->stopSniffer = (gcnew System::Windows::Forms::Button());
+			this->timeStr = (gcnew System::Windows::Forms::ColumnHeader());
+			this->protocol = (gcnew System::Windows::Forms::ColumnHeader());
+			this->sourceAddr = (gcnew System::Windows::Forms::ColumnHeader());
+			this->destinationAddr = (gcnew System::Windows::Forms::ColumnHeader());
 			this->SuspendLayout();
 			// 
 			// btnStartSniff
@@ -99,7 +112,10 @@ namespace Sniffer {
 			// 
 			// dataView
 			// 
-			this->dataView->Columns->AddRange(gcnew cli::array< System::Windows::Forms::ColumnHeader^  >(1) { this->binary });
+			this->dataView->Columns->AddRange(gcnew cli::array< System::Windows::Forms::ColumnHeader^  >(5) {
+				this->timeStr, this->hexStr,
+					this->protocol, this->sourceAddr, this->destinationAddr
+			});
 			this->dataView->HideSelection = false;
 			this->dataView->Location = System::Drawing::Point(49, 91);
 			this->dataView->Name = L"dataView";
@@ -107,11 +123,13 @@ namespace Sniffer {
 			this->dataView->TabIndex = 1;
 			this->dataView->UseCompatibleStateImageBehavior = false;
 			this->dataView->View = System::Windows::Forms::View::Details;
+			this->dataView->SelectedIndexChanged += gcnew System::EventHandler(this, &MainForm::dataView_SelectedIndexChanged);
 			// 
-			// binary
+			// hexStr
 			// 
-			this->binary->Text = L"binary";
-			this->binary->Width = 593;
+			this->hexStr->DisplayIndex = 4;
+			this->hexStr->Text = L"数据";
+			this->hexStr->Width = 118;
 			// 
 			// adapterList
 			// 
@@ -132,6 +150,23 @@ namespace Sniffer {
 			this->stopSniffer->UseVisualStyleBackColor = true;
 			this->stopSniffer->Click += gcnew System::EventHandler(this, &MainForm::stopSniffer_Click);
 			// 
+			// timeStr
+			// 
+			this->timeStr->Text = L"时间";
+			this->timeStr->Width = 107;
+			// 
+			// protocol
+			// 
+			this->protocol->Text = L"协议";
+			// 
+			// sourceAddr
+			// 
+			this->sourceAddr->Text = L"源";
+			// 
+			// destinationAddr
+			// 
+			this->destinationAddr->Text = L"目的";
+			// 
 			// MainForm
 			// 
 			this->ClientSize = System::Drawing::Size(772, 514);
@@ -146,22 +181,34 @@ namespace Sniffer {
 
 		}
 #pragma endregion
-	void  startListen(const char* id) {
-		char err[PCAP_ERRBUF_SIZE];
-		pcap_t* adhandle = pcap_open(id, 65536, PCAP_OPENFLAG_PROMISCUOUS, 1000, NULL, err);
-		if (adhandle == NULL) {
-			exit(1);
+
+
+		void MainForm::startListen(const char* id) {
+			char err[PCAP_ERRBUF_SIZE];
+			pcap_t* adhandle = pcap_open(id, 65536, PCAP_OPENFLAG_PROMISCUOUS, 1000, NULL, err);
+			if (adhandle == NULL) {
+				MessageBox::Show(gcnew String(err));
+				exit(1);
+			}
+			int curDLT = pcap_datalink(adhandle);
+			//DLT_EN10MB;
+			bool isSupport = false;
+			for (auto& i : supportDLT) isSupport |= i == curDLT;
+			MessageBox::Show(curDLT.ToString());
+			if (!isSupport) {
+				MessageBox::Show("不支持的链接层协议");
+				return;
+			}
+			MessageBox::Show("开始监听：" + gcnew String(id));
+			this->keepAlive->set(true);
+			DataManager^ manager = gcnew DataManager(this, adhandle, this->keepAlive, this->procAlive);
+			auto thstart = gcnew Threading::ThreadStart(manager, &DataManager::run);
+			Threading::Thread^ th = gcnew Threading::Thread(thstart);
+			th->Start((IntPtr)adhandle);
+			//MessageBox::Show("监听结束");
 		}
-		MessageBox::Show("开始监听：" + gcnew String(id));
-		this->keepAlive->set(true);
-		DataManager^ manager=gcnew DataManager(dataView,this->keepAlive,this->procAlive);
-		auto thstart = gcnew Threading::ParameterizedThreadStart(manager, &DataManager::run);
-		Threading::Thread^ th = gcnew Threading::Thread(thstart);
-		th->Start((IntPtr)adhandle);
-		//MessageBox::Show("监听结束");
-	}
 private: System::Void btnStartSniff_Click(System::Object^ sender, System::EventArgs^ e) {
-	Entity::InterfaceInfo^ info=(Entity::InterfaceInfo^)adapterList->SelectedItem;
+	InterfaceInfo^ info=(InterfaceInfo^)adapterList->SelectedItem;
 	auto id=info->id;
 	startListen(id);
 }
@@ -171,6 +218,6 @@ private: System::Void stopSniffer_Click(System::Object^ sender, System::EventArg
 }
 private: System::Void MainForm_Load(System::Object^ sender, System::EventArgs^ e) {
 }
-};
+private: System::Void dataView_SelectedIndexChanged(System::Object^ sender, System::EventArgs^ e) {
 }
-
+};

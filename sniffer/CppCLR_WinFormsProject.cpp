@@ -1,12 +1,8 @@
 #include "pch.h"
-
 using namespace System;
-
-// int main(array<System::String ^> ^args)
-// {
-//    return 0;
-// }
-
+extern void recvPackFun(u_char* param,
+	const struct pcap_pkthdr* header,
+	const u_char* pkt_data);
 #include "MainForm.h"
 
 using namespace System::Windows::Forms;
@@ -16,7 +12,7 @@ int main()
 {
   Application::EnableVisualStyles();
   Application::SetCompatibleTextRenderingDefault(false);
-  Application::Run(gcnew Sniffer::MainForm());
+  Application::Run(gcnew MainForm());
 
 
   return 0;
