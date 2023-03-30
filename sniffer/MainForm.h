@@ -177,7 +177,7 @@ extern void recvPackFun(u_char* param,
 			this->descriptionText->Multiline = true;
 			this->descriptionText->Name = L"descriptionText";
 			this->descriptionText->ReadOnly = true;
-			this->descriptionText->Size = System::Drawing::Size(237, 44);
+			this->descriptionText->Size = System::Drawing::Size(237, 96);
 			this->descriptionText->TabIndex = 4;
 			// 
 			// payloadText
@@ -186,7 +186,7 @@ extern void recvPackFun(u_char* param,
 			this->payloadText->Multiline = true;
 			this->payloadText->Name = L"payloadText";
 			this->payloadText->ReadOnly = true;
-			this->payloadText->Size = System::Drawing::Size(218, 44);
+			this->payloadText->Size = System::Drawing::Size(218, 96);
 			this->payloadText->TabIndex = 5;
 			// 
 			// label1
@@ -254,6 +254,10 @@ extern void recvPackFun(u_char* param,
 			//MessageBox::Show("监听结束");
 		}
 private: System::Void btnStartSniff_Click(System::Object^ sender, System::EventArgs^ e) {
+	if (adapterList->SelectedItem==nullptr) {
+		MessageBox::Show("先选一个接口");
+		return;
+	}
 	InterfaceInfo^ info=(InterfaceInfo^)adapterList->SelectedItem;
 	auto id=info->id;
 	startListen(id);

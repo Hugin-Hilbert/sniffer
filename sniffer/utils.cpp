@@ -28,11 +28,11 @@ struct UDPlayer :Layer {
 		next = nullptr;
 	}
 	String^ source() const{
-		String^ res="/"+gcnew String(header->sport.ToString());
+		String^ res="/"+ntohs(header->sport);
 		return res;
 	}
 	String^ destination() const{
-		String^ res ="/"+gcnew String(header->dport.ToString());
+		String^ res ="/"+ ntohs(header->dport);
 		return res;
 	}
 	String^ protocol() const{
@@ -40,26 +40,75 @@ struct UDPlayer :Layer {
 	}
 	String^ to_string() const{
 		String^ res = gcnew String("UDP:")+Environment::NewLine;
-		res += "源:"+header->sport + ",目的:"+header->dport+Environment::NewLine;
+		res += "源:"+ntohs(header->sport) + ",目的:"+ntohs(header->dport)+Environment::NewLine;
 		return res;
 	}
 };
 struct TCPlayer:Layer{
-	TCPlayer(u_char* _data);
-	String^ to_string();
+	struct head{
+		uint16_t src, dst;
+		uint32_t seq, ack_num;
+#if (REG_DWORD==REG_DWORD_LITTLE_ENDIAN)
+			uint16_t reserved : 4,offset : 4,
+					 fin:1,syn : 1,rst: 1,psh : 1,ack: 1,urg : 1,ece : 1,cwr : 1;
+#else
+		uint16_t offset : 4,reserved : 4, 
+					 cwr : 1,ece : 1, urg : 1, ack : 1,psh : 1, rst : 1, syn : 1,fin : 1;
+#endif
+		uint16_t windowSize, checkSum, urgPtr;
+		uint32_t option_pad;
+	}*header;
+	String^ protocol() const{
+		return next?next->protocol() : "TCP";
+	}
+	TCPlayer(u_char* _data) {
+		header = (head*)_data;
+		data = _data+header->offset*4;
+		next = NULL;
+	}
+	String^ source() const {
+		String^ res = "/" + ntohs(header->src);
+		return res;
+	}
+	String^ destination() const {
+		String^ res = "/" + ntohs(header->dst);
+		return res;
+	}
+	String^ to_string()const {
+		String^ res = "TCP:" + Environment::NewLine;
+		res += "源:" + ntohs(header->src)+","+"目的:"+ntohs(header->dst)+Environment::NewLine;
+		res += "seq:"+(header->seq)+","+"ack:"+(header->ack_num)+Environment::NewLine;
+
+		res += "flags:";
+		if (header->fin)res+="FIN ";
+		if (header->syn)res+="SYN ";
+		if (header->rst)res+="RST ";
+		if (header->psh)res+="PSH ";
+		if (header->ack)res+="ACK ";
+		if (header->urg)res+="URG ";
+		if (header->ece)res+="ECE ";
+		if (header->cwr)res+="CWR ";
+		res += Environment::NewLine;
+		res += "窗口大小:"+header->windowSize+",校验和:"+header->checkSum+Environment::NewLine;
+		res += "紧急指针:" + header->urgPtr+Environment::NewLine;
+		return res;
+	}
 };
 struct IPV4layer:Layer {
 	struct address{
 		uint8_t ip[4];
 		String^ to_string() {
 			String^ res = ip[0].ToString("D3");
-			for (int i = 1; i < 3; i++)res += ":" + ip[i].ToString("D3");
+			for (int i = 1; i < 4; i++)res += ":" + ip[i].ToString("D3");
 			return res;
 		}
 	};
 	struct head {
-		uint8_t version : 4;
-		uint8_t header_length : 4;
+#if (REG_DWORD==REG_DWORD_LITTLE_ENDIAN)
+		uint8_t header_length : 4, version : 4;
+#else
+		uint8_t version : 4, header_length : 4;
+#endif
 		uint8_t type_of_service;
 		uint16_t total_length;
 		uint16_t ident;
@@ -74,12 +123,12 @@ struct IPV4layer:Layer {
 	String^ to_string() const {
 		String^ res = "IP报文:"+ Environment::NewLine;
 		res += "版本:"+header->version+Environment::NewLine;
-		res += "总长度:"+header->total_length+Environment::NewLine;
+		res += "总长度:"+ntohs(header->total_length)+Environment::NewLine;
 		res += "标识:" + header->ident+Environment::NewLine;
-		bool DF = (header->flags_and_offset>>13)&0b010;
-		bool MF = (header->flags_and_offset >> 13) & 0b001;
+		bool DF = (ntohs(header->flags_and_offset)>>13)&0b010;
+		bool MF = (ntohs(header->flags_and_offset) >> 13) & 0b001;
 		res += "DF:" + DF+",MF:"+MF+Environment::NewLine;
-		res += "偏移:" + (header->flags_and_offset & 0x1fff)*8+"byte" + Environment::NewLine;
+		res += "偏移:" + (ntohs(header->flags_and_offset) & 0x1fff)*8+"byte" + Environment::NewLine;
 		res += "TTL:"+header->ttl+Environment::NewLine;
 		res += "源:"+header->src_addr.to_string() + Environment::NewLine;
 		res += "目的:" + header->des_addr.to_string() + Environment::NewLine;
@@ -115,6 +164,9 @@ struct IPV4layer:Layer {
 		{
 		case PayLoadProtocol::UDP:
 			next = new UDPlayer(payLoad);
+			break;
+		case PayLoadProtocol::TCP:
+			next = new TCPlayer(payLoad);
 			break;
 		default:
 			next = nullptr;
@@ -153,7 +205,7 @@ struct ETHlayer:Layer{
 		return next ? next->protocol() : "Ethernet II";
 	}
 	enum PayLoadProtocol {
-		IPV4=0x0800
+		IPV4=0x0800,
 	};
 	struct head{
 		address destination, source;
@@ -195,8 +247,8 @@ UnpackedPackageInfo::UnpackedPackageInfo(const PackageInfo& info,int DLT){
 		description = bootStrap->to_string();
 		u_char* data = bootStrap->payload();
 		int len = info.header.len-(data-info.pkt_data);
-		System::Text::UTF8Encoding encoder;
-		payload=encoder.GetString(data,len);
+		System::Text::ASCIIEncoding^ decoder=gcnew System::Text::ASCIIEncoding();
+		payload = decoder->GetString(data,len);
 	}
 }
 void recvPack::updateUI(UnpackedPackageInfo^ text) {
@@ -222,9 +274,8 @@ recvPack::recvPack(MainForm^ _form, syncPcap_tPtr^ _adhandle,int _DLT) {
 void recvPack::handleUse(u_char* param,
 	const struct pcap_pkthdr* header,
 	const u_char* pkt_data){
-	PackageInfo info = PackageInfo(header, pkt_data);
-	data.push_back(info);
-	UnpackedPackageInfo^ res=gcnew UnpackedPackageInfo(info,this->DLT);
+	data.push_back(PackageInfo(header, pkt_data));
+	UnpackedPackageInfo^ res=gcnew UnpackedPackageInfo(data.back(), this->DLT);
 	auto act = gcnew Action<UnpackedPackageInfo^>(this, &recvPack::updateUI);
 	if (form->InvokeRequired)
 		form->Invoke(act, res);
