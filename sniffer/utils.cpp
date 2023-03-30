@@ -288,8 +288,25 @@ DataManager::DataManager(MainForm^ form, int DLT, syncPcap_tPtr^ _adhandle, sync
 	keepAlive = keep;
 	procAlive = proc;
 }
-void DataManager::run() {
+#include<msclr/marshal_cppstd.h>
+void DataManager::run(Object^ param) {
+	auto tup = (Tuple<String^, u_int>^)param;
+	String^ rule=tup->Item1;
+	std::string str = msclr::interop::marshal_as<std::string>(rule);
+	u_int netmask = tup->Item2;
 	pcap_t* adhandle = (pcap_t*)handle->adhandle->get();
+	bpf_program fcode;
+	if (pcap_compile(adhandle, &fcode, str.c_str(), 1, netmask) < 0) {
+		MessageBox::Show("error in compile filter:"+gcnew String(pcap_geterr(adhandle)));
+		pcap_close(adhandle), keepAlive->set(false);
+		return;
+	}
+	if (pcap_setfilter(adhandle, &fcode)<0) {
+		MessageBox::Show("error in set filter:"+gcnew String(pcap_geterr(adhandle)));
+		pcap_close(adhandle),keepAlive->set(false);
+		return;
+	}
+	MessageBox::Show("¿ªÊ¼¼àÌý");
 	while (1) {
 		int status = pcap_dispatch(adhandle, 0, recvPackFun, NULL);
 		if (status == -1) {
@@ -300,7 +317,7 @@ void DataManager::run() {
 			MessageBox::Show("capture ended");
 			break;
 		}
-
 	}
 	pcap_close(adhandle);
+	keepAlive->set(false);
 }

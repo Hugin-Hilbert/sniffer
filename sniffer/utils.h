@@ -42,7 +42,7 @@ ref class DataManager
 public:
 	syncBool^ keepAlive,^procAlive;
 	DataManager(MainForm^ form, int DLT, syncPcap_tPtr^ _adhandle, syncBool^ keep, syncBool^ proc);
-	void run();
+	void run(Object^);
 	~DataManager(){}
 
 private:

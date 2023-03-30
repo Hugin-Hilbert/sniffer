@@ -5,8 +5,8 @@ using namespace System::Windows;
 ref class InterfaceInfo
 {
 public:
-	String^ name, ^ description;
-	char* id;
+	String^ description;
+	pcap_if_t* device;
 	String^ ToString() override{
 		return description;
 	}
