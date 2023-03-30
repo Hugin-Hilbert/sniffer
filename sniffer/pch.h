@@ -6,6 +6,7 @@
 
 #ifndef PCH_H
 #define PCH_H
+#pragma comment (lib,"Ws2_32.lib")
 #include<pcap.h>
 // add headers that you want to pre-compile here
 

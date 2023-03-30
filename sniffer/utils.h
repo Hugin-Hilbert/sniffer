@@ -15,54 +15,34 @@ static std::vector<PackageInfo> data;
 const int supportDLT[]={DLT_EN10MB};
 ref class MainForm;
 ref class UnpackedPackageInfo {
-	String^ timeStr;
+public:
+	String^ timeStr,^ src,^ des, ^protocol;
 	String^ description;
+	String^ payload;
 public:UnpackedPackageInfo(const PackageInfo& info,int DLT); 
 };
 ref class recvPack
 {
 public:
 	MainForm^ form;
-	pcap_t*  adhandle;
+	syncPcap_tPtr^ adhandle;
 	int DLT;
 	void updateUI(UnpackedPackageInfo^ text);
 	void handleUse(u_char* param,
 		const struct pcap_pkthdr* header,
 		const u_char* pkt_data);
-	recvPack(MainForm^ _form,pcap_t* _adhandle) {
-		DLT=pcap_datalink(adhandle);
-		form=_form, adhandle = _adhandle;
-	}
+	recvPack(MainForm^ _form, syncPcap_tPtr^ _adhandle,int _DLT);
 	~recvPack() {
 
 	}
 };	
-msclr::gcroot<recvPack^> handle;	
 void recvPackFun(u_char* param,const struct pcap_pkthdr* header,const u_char* pkt_data);
 ref class DataManager
 {
 public:
 	syncBool^ keepAlive,^procAlive;
-	DataManager(MainForm^ form,pcap_t* _adhandle,syncBool^ keep,syncBool^ proc){
-		handle = gcnew recvPack(form,_adhandle);
-		keepAlive = keep;
-		procAlive = proc;
-	}
-	void run() {
-		pcap_t* adhandle = handle->adhandle;
-		while (1) {
-			int status = pcap_dispatch(adhandle, 0, recvPackFun, (u_char*)adhandle); 
-			if(status==-1) {
-				MessageBox::Show("pcap_dispatch:err" + gcnew String(pcap_geterr(adhandle)));
-			}
-			if (keepAlive->get()->Equals(false) || procAlive->get()->Equals(false)) {
-				MessageBox::Show("capture ended");
-				break;
-			}
-
-		}
-		pcap_close(adhandle);
-	}
+	DataManager(MainForm^ form, int DLT, syncPcap_tPtr^ _adhandle, syncBool^ keep, syncBool^ proc);
+	void run();
 	~DataManager(){}
 
 private:

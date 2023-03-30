@@ -23,6 +23,13 @@ extern void recvPackFun(u_char* param,
 	private: System::Windows::Forms::ColumnHeader^ timeStr;
 	private: System::Windows::Forms::ColumnHeader^ protocol;
 	private: System::Windows::Forms::ColumnHeader^ sourceAddr;
+	private: System::Windows::Forms::TextBox^ descriptionText;
+	private: System::Windows::Forms::TextBox^ payloadText;
+
+
+	private: System::Windows::Forms::Label^ label1;
+	private: System::Windows::Forms::Label^ label2;
+
 	private: System::Windows::Forms::ColumnHeader^ destinationAddr;
 	public:
 		MainForm(void)
@@ -59,7 +66,7 @@ extern void recvPackFun(u_char* param,
 		}
 	private: System::Windows::Forms::Button^ btnStartSniff;
 	public: System::Windows::Forms::ListView^ dataView;
-	private: System::Windows::Forms::ColumnHeader^ hexStr;
+
 	public:
 	protected:
 
@@ -91,13 +98,16 @@ extern void recvPackFun(u_char* param,
 		{
 			this->btnStartSniff = (gcnew System::Windows::Forms::Button());
 			this->dataView = (gcnew System::Windows::Forms::ListView());
-			this->hexStr = (gcnew System::Windows::Forms::ColumnHeader());
-			this->adapterList = (gcnew System::Windows::Forms::ComboBox());
-			this->stopSniffer = (gcnew System::Windows::Forms::Button());
 			this->timeStr = (gcnew System::Windows::Forms::ColumnHeader());
 			this->protocol = (gcnew System::Windows::Forms::ColumnHeader());
 			this->sourceAddr = (gcnew System::Windows::Forms::ColumnHeader());
 			this->destinationAddr = (gcnew System::Windows::Forms::ColumnHeader());
+			this->adapterList = (gcnew System::Windows::Forms::ComboBox());
+			this->stopSniffer = (gcnew System::Windows::Forms::Button());
+			this->descriptionText = (gcnew System::Windows::Forms::TextBox());
+			this->payloadText = (gcnew System::Windows::Forms::TextBox());
+			this->label1 = (gcnew System::Windows::Forms::Label());
+			this->label2 = (gcnew System::Windows::Forms::Label());
 			this->SuspendLayout();
 			// 
 			// btnStartSniff
@@ -112,24 +122,35 @@ extern void recvPackFun(u_char* param,
 			// 
 			// dataView
 			// 
-			this->dataView->Columns->AddRange(gcnew cli::array< System::Windows::Forms::ColumnHeader^  >(5) {
-				this->timeStr, this->hexStr,
-					this->protocol, this->sourceAddr, this->destinationAddr
+			this->dataView->Columns->AddRange(gcnew cli::array< System::Windows::Forms::ColumnHeader^  >(4) {
+				this->timeStr, this->protocol,
+					this->sourceAddr, this->destinationAddr
 			});
 			this->dataView->HideSelection = false;
 			this->dataView->Location = System::Drawing::Point(49, 91);
 			this->dataView->Name = L"dataView";
-			this->dataView->Size = System::Drawing::Size(547, 362);
+			this->dataView->Size = System::Drawing::Size(547, 231);
 			this->dataView->TabIndex = 1;
 			this->dataView->UseCompatibleStateImageBehavior = false;
 			this->dataView->View = System::Windows::Forms::View::Details;
 			this->dataView->SelectedIndexChanged += gcnew System::EventHandler(this, &MainForm::dataView_SelectedIndexChanged);
 			// 
-			// hexStr
+			// timeStr
 			// 
-			this->hexStr->DisplayIndex = 4;
-			this->hexStr->Text = L"数据";
-			this->hexStr->Width = 118;
+			this->timeStr->Text = L"时间";
+			this->timeStr->Width = 107;
+			// 
+			// protocol
+			// 
+			this->protocol->Text = L"协议";
+			// 
+			// sourceAddr
+			// 
+			this->sourceAddr->Text = L"源";
+			// 
+			// destinationAddr
+			// 
+			this->destinationAddr->Text = L"目的";
 			// 
 			// adapterList
 			// 
@@ -150,26 +171,49 @@ extern void recvPackFun(u_char* param,
 			this->stopSniffer->UseVisualStyleBackColor = true;
 			this->stopSniffer->Click += gcnew System::EventHandler(this, &MainForm::stopSniffer_Click);
 			// 
-			// timeStr
+			// descriptionText
 			// 
-			this->timeStr->Text = L"时间";
-			this->timeStr->Width = 107;
+			this->descriptionText->Location = System::Drawing::Point(49, 366);
+			this->descriptionText->Multiline = true;
+			this->descriptionText->Name = L"descriptionText";
+			this->descriptionText->ReadOnly = true;
+			this->descriptionText->Size = System::Drawing::Size(237, 44);
+			this->descriptionText->TabIndex = 4;
 			// 
-			// protocol
+			// payloadText
 			// 
-			this->protocol->Text = L"协议";
+			this->payloadText->Location = System::Drawing::Point(378, 366);
+			this->payloadText->Multiline = true;
+			this->payloadText->Name = L"payloadText";
+			this->payloadText->ReadOnly = true;
+			this->payloadText->Size = System::Drawing::Size(218, 44);
+			this->payloadText->TabIndex = 5;
 			// 
-			// sourceAddr
+			// label1
 			// 
-			this->sourceAddr->Text = L"源";
+			this->label1->AutoSize = true;
+			this->label1->Location = System::Drawing::Point(42, 326);
+			this->label1->Name = L"label1";
+			this->label1->Size = System::Drawing::Size(81, 37);
+			this->label1->TabIndex = 6;
+			this->label1->Text = L"描述";
 			// 
-			// destinationAddr
+			// label2
 			// 
-			this->destinationAddr->Text = L"目的";
+			this->label2->AutoSize = true;
+			this->label2->Location = System::Drawing::Point(378, 325);
+			this->label2->Name = L"label2";
+			this->label2->Size = System::Drawing::Size(81, 37);
+			this->label2->TabIndex = 7;
+			this->label2->Text = L"负载";
 			// 
 			// MainForm
 			// 
 			this->ClientSize = System::Drawing::Size(772, 514);
+			this->Controls->Add(this->label2);
+			this->Controls->Add(this->label1);
+			this->Controls->Add(this->payloadText);
+			this->Controls->Add(this->descriptionText);
 			this->Controls->Add(this->stopSniffer);
 			this->Controls->Add(this->adapterList);
 			this->Controls->Add(this->dataView);
@@ -178,6 +222,7 @@ extern void recvPackFun(u_char* param,
 			this->Text = L"Sniffer";
 			this->Load += gcnew System::EventHandler(this, &MainForm::MainForm_Load);
 			this->ResumeLayout(false);
+			this->PerformLayout();
 
 		}
 #pragma endregion
@@ -185,26 +230,27 @@ extern void recvPackFun(u_char* param,
 
 		void MainForm::startListen(const char* id) {
 			char err[PCAP_ERRBUF_SIZE];
-			pcap_t* adhandle = pcap_open(id, 65536, PCAP_OPENFLAG_PROMISCUOUS, 1000, NULL, err);
-			if (adhandle == NULL) {
+			syncPcap_tPtr^  adhandle = gcnew syncPcap_tPtr((IntPtr)pcap_open(id, 65536, PCAP_OPENFLAG_PROMISCUOUS, 1000, NULL, err));
+			pcap_t* ptr = adhandle->get();
+			if (ptr == NULL) {
 				MessageBox::Show(gcnew String(err));
 				exit(1);
 			}
-			int curDLT = pcap_datalink(adhandle);
+			int curDLT = pcap_datalink(ptr);
 			//DLT_EN10MB;
 			bool isSupport = false;
 			for (auto& i : supportDLT) isSupport |= i == curDLT;
-			MessageBox::Show(curDLT.ToString());
 			if (!isSupport) {
 				MessageBox::Show("不支持的链接层协议");
 				return;
 			}
 			MessageBox::Show("开始监听：" + gcnew String(id));
 			this->keepAlive->set(true);
-			DataManager^ manager = gcnew DataManager(this, adhandle, this->keepAlive, this->procAlive);
+			adhandle->release();
+			DataManager^ manager = gcnew DataManager(this,curDLT,adhandle, this->keepAlive, this->procAlive);
 			auto thstart = gcnew Threading::ThreadStart(manager, &DataManager::run);
 			Threading::Thread^ th = gcnew Threading::Thread(thstart);
-			th->Start((IntPtr)adhandle);
+			th->Start();
 			//MessageBox::Show("监听结束");
 		}
 private: System::Void btnStartSniff_Click(System::Object^ sender, System::EventArgs^ e) {
@@ -219,5 +265,15 @@ private: System::Void stopSniffer_Click(System::Object^ sender, System::EventArg
 private: System::Void MainForm_Load(System::Object^ sender, System::EventArgs^ e) {
 }
 private: System::Void dataView_SelectedIndexChanged(System::Object^ sender, System::EventArgs^ e) {
+	auto items = dataView->SelectedItems;
+	if (items->Count == 0) {
+		descriptionText->Clear();
+		payloadText->Clear();
+	}
+	else {
+		auto item = items[0];
+		descriptionText->Text = item->SubItems[4]->Text;
+		payloadText->Text = item->SubItems[5]->Text;
+	}
 }
 };
