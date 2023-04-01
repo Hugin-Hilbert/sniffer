@@ -2,6 +2,7 @@
 #include"utils.h"
 #include"MainForm.h"
 msclr::gcroot<recvPack^> handle;
+std::vector<PackageInfo> data;
 struct Layer{
 	virtual String^ to_string() const =0;
 	virtual String^ protocol() const=0;
@@ -313,11 +314,11 @@ void DataManager::run(Object^ param) {
 			MessageBox::Show("pcap_dispatch:err" + gcnew String(pcap_geterr(adhandle)));
 		}
 		bool^ tmp1=keepAlive->get(),^tmp2=procAlive->get();
-		if (tmp1->Equals(false) || tmp2->Equals(false)) {
-			MessageBox::Show("capture ended");
+		if (tmp1->Equals(false) || tmp2->Equals(false)) {	
 			break;
 		}
 	}
-	pcap_close(adhandle);
-	keepAlive->set(false);
+	//pcap_close(adhandle);
+	keepAlive->set(false);	
+	MessageBox::Show("capture ended");
 }

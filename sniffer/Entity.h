@@ -18,52 +18,6 @@ private:
 #include<msclr/gcroot.h>
 #include<msclr/lock.h>
 using namespace System;
-ref class syncPcap_tPtr {
-	IntPtr^ ptr;
-	msclr::lock locker;
-public :
-	syncPcap_tPtr(IntPtr^ _ptr):ptr(_ptr),locker(ptr) {
-
-	}
-	~syncPcap_tPtr() {
-		pcap_close((pcap_t*)ptr->ToPointer());
-	}
-	pcap_t* get() {
-		locker.acquire();
-		return (pcap_t*)ptr->ToPointer();
-	}
-	void release() {
-		locker.release();
-	}
-};
-ref class syncBool
-{
-public:
-	bool^ val;
-	msclr::lock locker;
-	syncBool(bool _val):val(_val),locker(val) {
-	}
-	void release() {
-		locker.release();
-	}
-	void set(bool^ _val) {
-		locker.acquire();
-		val = _val;
-	}
-	bool^ tryGet(int time_out, bool^ default_val) {
-		if (locker.try_acquire(time_out)) {
-			return val;
-		}
-		return default_val;
-	}
-	bool^ get() {
-		locker.acquire();
-		return val;
-	}
-	~syncBool() {
-
-	}
-};
 #include<string>
 #include<vector>
 #include<WinSock2.h>

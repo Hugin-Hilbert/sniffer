@@ -2,10 +2,9 @@
 #include<msclr/gcroot.h>
 #include<msclr/lock.h>
 #include"utils.h"
+#include<msclr/marshal_cppstd.h>
 #pragma once
-extern void recvPackFun(u_char* param,
-	const struct pcap_pkthdr* header,
-	const u_char* pkt_data);
+extern std::vector<PackageInfo> data;
 
 	using namespace System;
 	using namespace System::ComponentModel;
@@ -20,6 +19,7 @@ extern void recvPackFun(u_char* param,
 		/// user region
 		/// </summary>
 		syncBool^ keepAlive,^procAlive;
+		syncPcap_tPtr^ adhandle;
 	private: System::Windows::Forms::ColumnHeader^ timeStr;
 	private: System::Windows::Forms::ColumnHeader^ protocol;
 	private: System::Windows::Forms::ColumnHeader^ sourceAddr;
@@ -34,6 +34,9 @@ extern void recvPackFun(u_char* param,
 	private: System::Windows::Forms::Label^ label3;
 	private: System::Windows::Forms::Label^ label4;
 	private: System::Windows::Forms::TextBox^ filterRule;
+
+	private: System::Windows::Forms::Button^ dump;
+
 
 
 
@@ -120,6 +123,7 @@ extern void recvPackFun(u_char* param,
 			this->label3 = (gcnew System::Windows::Forms::Label());
 			this->label4 = (gcnew System::Windows::Forms::Label());
 			this->filterRule = (gcnew System::Windows::Forms::TextBox());
+			this->dump = (gcnew System::Windows::Forms::Button());
 			this->SuspendLayout();
 			// 
 			// btnStartSniff
@@ -254,9 +258,20 @@ extern void recvPackFun(u_char* param,
 			this->filterRule->Size = System::Drawing::Size(227, 44);
 			this->filterRule->TabIndex = 12;
 			// 
+			// dump
+			// 
+			this->dump->Location = System::Drawing::Point(644, 238);
+			this->dump->Name = L"dump";
+			this->dump->Size = System::Drawing::Size(113, 52);
+			this->dump->TabIndex = 13;
+			this->dump->Text = L"另存为";
+			this->dump->UseVisualStyleBackColor = true;
+			this->dump->Click += gcnew System::EventHandler(this, &MainForm::dump_Click);
+			// 
 			// MainForm
 			// 
 			this->ClientSize = System::Drawing::Size(772, 514);
+			this->Controls->Add(this->dump);
 			this->Controls->Add(this->filterRule);
 			this->Controls->Add(this->label4);
 			this->Controls->Add(this->label3);
@@ -281,7 +296,10 @@ extern void recvPackFun(u_char* param,
 
 		void MainForm::startListen(pcap_if_t* dev) {
 			char err[PCAP_ERRBUF_SIZE];
-			syncPcap_tPtr^  adhandle = gcnew syncPcap_tPtr((IntPtr)pcap_open(dev->name, 65536, PCAP_OPENFLAG_PROMISCUOUS, 1000, NULL, err));
+			if (adhandle!=nullptr) {
+				pcap_close(adhandle->get());
+			}
+			adhandle = gcnew syncPcap_tPtr((IntPtr)pcap_open(dev->name, 65536, PCAP_OPENFLAG_PROMISCUOUS, 1000, NULL, err));
 			pcap_t* ptr = adhandle->get();
 			if (ptr == NULL) {
 				MessageBox::Show(gcnew String(err));
@@ -304,7 +322,6 @@ extern void recvPackFun(u_char* param,
 				netmask = 0xffffff;
 			}
 			this->keepAlive->set(true);
-			adhandle->release();
 			DataManager^ manager = gcnew DataManager(this,curDLT,adhandle, this->keepAlive, this->procAlive);
 			auto thstart = gcnew Threading::ParameterizedThreadStart(manager, &DataManager::run);
 			//gcnew Threading::ThreadStart(manager, &DataManager::run);
@@ -344,8 +361,35 @@ private: System::Void dataView_SelectedIndexChanged(System::Object^ sender, Syst
 		payloadText->Text = item->SubItems[5]->Text;
 	}
 }
-private: System::Void clearBtn_Click(System::Object^ sender, System::EventArgs^ e) {
-	data.clear();
-	dataView->Items->Clear();
+	private: System::Void clearBtn_Click(System::Object^ sender, System::EventArgs^ e) {
+		data.clear();
+		dataView->Items->Clear();
+	}
+
+private: System::Void dump_Click(System::Object^ sender, System::EventArgs^ e) {
+	if (data.empty()) {
+		MessageBox::Show("没有要保存的数据");
+		return;
+	}
+	if (keepAlive->get()->Equals(true)) {
+		MessageBox::Show("停止监听");
+		return;
+	}
+	SaveFileDialog^ dialog = gcnew SaveFileDialog();
+	dialog->Title = "选择保存位置";
+	dialog->Filter = "pcap文件|*.pcap";
+	dialog->InitialDirectory = Environment::GetFolderPath(Environment::SpecialFolder::Desktop);
+	if (dialog->ShowDialog() == System::Windows::Forms::DialogResult::OK) {
+		pcap_dumper_t* dump_file = pcap_dump_open(adhandle->get(),msclr::interop::marshal_as<std::string> (dialog->FileName).c_str());
+		if (dump_file == NULL) {
+			MessageBox::Show("无法打开文件"+gcnew String(pcap_geterr(adhandle->get())));
+			return;
+		}
+		for (auto& i : data) {
+			pcap_dump((u_char*)dump_file, &i.header, i.pkt_data);
+		}
+		pcap_dump_close(dump_file);
+		MessageBox::Show("保存成功");
+	}
 }
 };

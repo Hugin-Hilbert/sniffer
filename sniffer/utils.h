@@ -11,9 +11,52 @@ using namespace System::Collections;
 using namespace System::Windows::Forms;
 using namespace System::Data;
 using namespace System::Drawing;
-static std::vector<PackageInfo> data;
 const int supportDLT[]={DLT_EN10MB};
 ref class MainForm;
+ref class syncPcap_tPtr {
+	IntPtr^ ptr;
+	msclr::lock locker;
+public:
+	syncPcap_tPtr(IntPtr^ _ptr) :ptr(_ptr), locker(ptr) {
+
+	}
+	~syncPcap_tPtr() {
+		pcap_close((pcap_t*)ptr->ToPointer());
+	}
+	pcap_t* get() {
+		locker.acquire();
+		return (pcap_t*)ptr->ToPointer();
+	}
+};
+ref class syncBool
+{
+public:
+	bool^ val;
+	msclr::lock locker;
+	syncBool(bool _val) :val(_val), locker(val) {
+	}
+	void release() {
+		locker.release();
+	}
+	void set(bool^ _val) {
+		locker.acquire();
+		val = _val;
+	}
+	bool^ tryGet(int time_out, bool^ default_val) {
+		if (locker.try_acquire(time_out)) {
+			return val;
+		}
+		return default_val;
+	}
+	bool^ get() {
+		locker.acquire();
+		return val;
+	}
+	~syncBool() {
+
+	}
+};
+
 ref class UnpackedPackageInfo {
 public:
 	String^ timeStr,^ src,^ des, ^protocol;
