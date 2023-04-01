@@ -158,16 +158,15 @@ struct IPV4layer:Layer {
 		delete next;
 	}
 	IPV4layer(u_char* _data) {
-		data = _data;
-		header = (head*)data;
-		u_char* payLoad=data+header->header_length*4;
+		header = (head*)_data;
+		data=_data+header->header_length*4;
 		switch (header->protocol)
 		{
 		case PayLoadProtocol::UDP:
-			next = new UDPlayer(payLoad);
+			next = new UDPlayer(data);
 			break;
 		case PayLoadProtocol::TCP:
-			next = new TCPlayer(payLoad);
+			next = new TCPlayer(data);
 			break;
 		default:
 			next = nullptr;
@@ -213,12 +212,12 @@ struct ETHlayer:Layer{
 		uint16_t protocol;
 	}*header;
 	ETHlayer(u_char* _data) {
-		data = _data;
-		header = (head*)data;
+		header = (head*)_data;		
+		data = _data+14;
 		switch (ntohs(header->protocol))
 		{
 		case PayLoadProtocol::IPV4:
-			next = new IPV4layer(data+14);
+			next = new IPV4layer(data);
 			break;
 		default:
 			next = nullptr;

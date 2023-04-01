@@ -67,9 +67,9 @@ public:UnpackedPackageInfo(const PackageInfo& info,int DLT);
 ref class recvPack
 {
 public:
-	MainForm^ form;
-	syncPcap_tPtr^ adhandle;
-	int DLT;
+	static MainForm^ form;
+	static syncPcap_tPtr^ adhandle;
+	static int DLT;
 	void updateUI(UnpackedPackageInfo^ text);
 	void handleUse(u_char* param,
 		const struct pcap_pkthdr* header,
