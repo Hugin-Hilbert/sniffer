@@ -174,6 +174,7 @@ struct IPV4layer:Layer {
 		}
 	}
 };
+
 struct ETHlayer:Layer{
 	struct address{
 		uint8_t mac[6];
@@ -298,12 +299,12 @@ void DataManager::run(Object^ param) {
 	bpf_program fcode;
 	if (pcap_compile(adhandle, &fcode, str.c_str(), 1, netmask) < 0) {
 		MessageBox::Show("error in compile filter:"+gcnew String(pcap_geterr(adhandle)));
-		pcap_close(adhandle), keepAlive->set(false);
+		keepAlive->set(false);
 		return;
 	}
 	if (pcap_setfilter(adhandle, &fcode)<0) {
 		MessageBox::Show("error in set filter:"+gcnew String(pcap_geterr(adhandle)));
-		pcap_close(adhandle),keepAlive->set(false);
+		keepAlive->set(false);
 		return;
 	}
 	MessageBox::Show("¿ªÊ¼¼àÌý");
@@ -317,7 +318,6 @@ void DataManager::run(Object^ param) {
 			break;
 		}
 	}
-	//pcap_close(adhandle);
 	keepAlive->set(false);	
 	MessageBox::Show("capture ended");
 }
